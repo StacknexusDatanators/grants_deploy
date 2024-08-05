@@ -12,7 +12,7 @@ import pytesseract
 from pytesseract import Output
 import cv2
 
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="/Users/astrobalaji/Documents/stacknexus/grants/notebook/creds/grant01-joby.json"
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="./creds/grant01-joby.json"
 import json
 
 with open('prompt_template.json', 'r') as file:

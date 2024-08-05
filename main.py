@@ -5,6 +5,13 @@ from typing import List, Dict
 import ollama
 from ast import literal_eval
 import time 
+import fitz  # PyMuPDF
+import io
+from PIL import Image
+import pytesseract
+from pytesseract import Output
+import cv2
+
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="/Users/astrobalaji/Documents/stacknexus/grants/notebook/creds/grant01-joby.json"
 import json
 
@@ -17,8 +24,48 @@ model_sel = "vicuna:7b"
 # If you already have a Document AI Processor in your project, assign the full processor resource name here.
 processor_name = "projects/332125695616/locations/us/processors/a6bceed480e9d614"
 
+
+def detect_orientation_pdf(pdf_path):
+    # Open the PDF file
+    pdf = fitz.open(pdf_path)
+    
+    for page_num in range(len(pdf)):
+        # Get the page
+        page = pdf[page_num]
+
+        # Convert the PDF page to an image
+        pix = page.get_pixmap()
+        img_data = pix.tobytes("ppm")
+        img = Image.open(io.BytesIO(img_data))
+        img = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
+
+        # Convert the image to grayscale
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+        # Use Tesseract to detect orientation
+        osd = pytesseract.image_to_osd(gray, output_type=Output.DICT)
+        angle = osd['rotate']
+        script = osd['script']
+        
+        # Check if the image is upside down
+        if angle != 0:
+            print(f"Page {page_num + 1} is upside down. Detected script: {script}")
+            # Rotate the image to correct it
+            (h, w) = img.shape[:2]
+            center = (w // 2, h // 2)
+            M = cv2.getRotationMatrix2D(center, angle, 1.0)
+            rotated = cv2.warpAffine(img, M, (w, h))
+            
+            # Convert the corrected image back to a PIL image and save
+            corrected_img = Image.fromarray(cv2.cvtColor(rotated, cv2.COLOR_BGR2RGB))
+            corrected_img.save(pdf_path, "PDF", resolution=100.0)
+
+
 def process_document(processor_name: str, file_path: str) -> documentai.Document:
     client = documentai.DocumentProcessorServiceClient()
+
+    detect_orientation_pdf(file_path)
+
 
     # Read the file into memory
     with open(file_path, "rb") as f:
@@ -311,96 +358,6 @@ async def process_residence_certificate(
         "application_data": application_data,
         "aadhaar_data": aadhaar_data
     }
-# def parse_aadhaar_info(extracted_text: str) -> dict:
-#     response = ollama.chat(model=model_sel, messages=[
-#         {
-#             'role': 'user',
-#             'content': f"""[Requirement] for the following content parsed from a scanned Aadhaar card document. The Aadhaar number is a 12 digit number with spaces in between. I want you to give me the following data in the following json structure. 
-#             [json_structure] {{"Name":---, "Aadhaar_number":---, "Date_of_birth":---}}
-#             ["content"]{extracted_text}
-#             """,
-#         },
-#     ], format="json")
-    
-#     # Safely evaluate the response content to convert it to a dictionary
-#     print("here1")
-#     print(response["message"]["content"])
-#     print("here2")
-#     output = response["message"]["content"]
-#     aadhaar_info = literal_eval(output)
-
-
-#     return aadhaar_info
-
-# @app.post("/process-aadhaar/")
-# async def process_aadhaar(file: UploadFile = File(...)):
-#     file_path = f"/tmp/{file.filename}"
-#     with open(file_path, "wb") as f:
-#         f.write(await file.read())
-
-#     start_time = time.time()
-#     # Your code block
- 
-
-#     document = process_document(processor_name, file_path=file_path)
-#     end_time = time.time()
-#     print(f"Elapsed time: {end_time - start_time} seconds")
-
-
-#     if document:
-#         extracted_text = document.text
-
-#         # Parse Aadhaar information
-#         aadhaar_info = parse_aadhaar_info(extracted_text)
-
-#         # Remove the temporary file
-#         os.remove(file_path)
-
-#         return aadhaar_info
-#     else:
-#         return {"error": "Failed to process the document"}
-
-# def parse_income_cert(extracted_text:str):
-#     prompt_template = """
-#         [Requirement] for the content that follows, which was extracted from an application form that was scanned. In addition to the applicant's name, which is a character with spaces between it, the date of birth is a variable character,  the mobile number with 10 digit number with spaces between it, the Adhaar number is a 12-digit number with spaces between it, and the ration card number is also a character. Please provide me with the following information in the JSON structure. 
-#         [json_structure] {{"Applicant Name":---, "Father_Husband_Name":---, "Date_of_birth":---  "Adhaar_Number":---  "Mobile_number":---  "Ration_card:---}}
-#         [content] {0}
-#     """
-#     response = ollama.chat(model=model_sel, messages=[
-#         {
-#             'role': 'user',
-#             'content': prompt_template.format(extracted_text),
-#         },
-#     ], format="json")
-#     # Safely evaluate the response content to convert it to a dictionary
-#     try:
-#         inc_info = literal_eval(response['message']['content'])
-#     except (SyntaxError, ValueError) as e:
-#         inc_info = {"error": "Failed to parse income information"}
-
-#     return inc_info 
-
-# @app.post("/process-income-cert/")
-# async def process_inc(file: UploadFile = File(...)):
-#     file_path = f"/tmp/{file.filename}"
-#     with open(file_path, "wb") as f:
-#         f.write(await file.read())
-
-#     document = process_document(processor_name, file_path=file_path)
-
-#     if document:
-#         extracted_text = document.text
-
-#         # Parse Aadhaar information
-#         inc_info = parse_income_cert(extracted_text)
-
-#         # Remove the temporary file
-#         os.remove(file_path)
-
-#         return inc_info
-#     else:
-#         return {"error": "Failed to process the document"}
-
     
 
 if __name__ == "__main__":

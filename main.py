@@ -115,6 +115,202 @@ async def process_income(application_form: UploadFile = File(...), aadhaar: Uplo
     return {"application_data": application_data, "aadhaar_data": aadhaar_data}
 
 
+@app.post("/process-community-dob-certificate/")
+async def process_community_dob(study_certificate: UploadFile = File(...), application_form: UploadFile = File(...), aadhaar_card: UploadFile = File(...)):
+    study_certificate_path = f"/tmp/{study_certificate.filename}"
+    application_path = f"/tmp/{application_form.filename}"
+    aadhaar_path = f"/tmp/{aadhaar_card.filename}"
+
+    with open(study_certificate_path, "wb") as f:
+        f.write(await study_certificate.read())
+
+    with open(application_path, "wb") as f:
+        f.write(await application_form.read())
+
+    with open(aadhaar_path, "wb") as f:
+        f.write(await aadhaar_card.read())
+
+    study_certificate_document = process_document(processor_name, file_path=study_certificate_path)
+    application_document = process_document(processor_name, file_path=application_path)
+    aadhaar_document = process_document(processor_name, file_path=aadhaar_path)
+
+    if study_certificate_document:
+        study_certificate_data = parse_docs(study_certificate_document.text, "community_dob_certificate", "study_certificate")
+        os.remove(study_certificate_path)
+    else:
+        return {"error": "Study Certificate data couldn't be parsed"}
+
+    if application_document:
+        application_data = parse_docs(application_document.text, "community_dob_certificate", "application_form")
+        os.remove(application_path)
+    else:
+        return {"error": "Application data couldn't be parsed"}
+
+    if aadhaar_document:
+        aadhaar_data = parse_docs(aadhaar_document.text, "community_dob_certificate", "aadhaar_card")
+        os.remove(aadhaar_path)
+    else:
+        return {"error": "Issue with the Aadhaar card. Please try again"}
+
+    return {
+        "study_certificate_data": study_certificate_data,
+        "application_data": application_data,
+        "aadhaar_data": aadhaar_data
+    }
+
+@app.post("/process-ebc-certificate/")
+async def process_ebc(application_form: UploadFile = File(...), aadhaar_card: UploadFile = File(...)):
+    application_path = f"/tmp/{application_form.filename}"
+    aadhaar_path = f"/tmp/{aadhaar_card.filename}"
+
+    with open(application_path, "wb") as f:
+        f.write(await application_form.read())
+
+    with open(aadhaar_path, "wb") as f:
+        f.write(await aadhaar_card.read())
+
+    application_document = process_document(processor_name, file_path=application_path)
+    aadhaar_document = process_document(processor_name, file_path=aadhaar_path)
+
+    if application_document:
+        application_data = parse_docs(application_document.text, "ebc_certificate", "application_form")
+        os.remove(application_path)
+    else:
+        return {"error": "Application data couldn't be parsed"}
+
+    if aadhaar_document:
+        aadhaar_data = parse_docs(aadhaar_document.text, "ebc_certificate", "aadhaar_card")
+        os.remove(aadhaar_path)
+    else:
+        return {"error": "Issue with the Aadhaar card. Please try again"}
+
+    return {
+        "application_data": application_data,
+        "aadhaar_data": aadhaar_data
+    }
+
+@app.post("/process-ewc-certificate/")
+async def process_ewc(application_form: UploadFile = File(...), aadhaar_card: UploadFile = File(...)):
+    application_path = f"/tmp/{application_form.filename}"
+    aadhaar_path = f"/tmp/{aadhaar_card.filename}"
+
+    with open(application_path, "wb") as f:
+        f.write(await application_form.read())
+
+    with open(aadhaar_path, "wb") as f:
+        f.write(await aadhaar_card.read())
+
+    application_document = process_document(processor_name, file_path=application_path)
+    aadhaar_document = process_document(processor_name, file_path=aadhaar_path)
+
+    if application_document:
+        application_data = parse_docs(application_document.text, "economically_weaker_section", "application_form")
+        os.remove(application_path)
+    else:
+        return {"error": "Application data couldn't be parsed"}
+
+    if aadhaar_document:
+        aadhaar_data = parse_docs(aadhaar_document.text, "economically_weaker_section", "aadhaar_card")
+        os.remove(aadhaar_path)
+    else:
+        return {"error": "Issue with the Aadhaar card. Please try again"}
+
+    return {
+        "application_data": application_data,
+        "aadhaar_data": aadhaar_data
+    }
+@app.post("/process-obc-certificate/")
+async def process_obc(
+    application_form: UploadFile = File(...),
+    aadhaar_card: UploadFile = File(...),
+    income_tax_return: UploadFile = File(...),
+    property_particulars: UploadFile = File(...)
+):
+    application_path = f"/tmp/{application_form.filename}"
+    aadhaar_path = f"/tmp/{aadhaar_card.filename}"
+    income_tax_path = f"/tmp/{income_tax_return.filename}"
+    property_path = f"/tmp/{property_particulars.filename}"
+
+    with open(application_path, "wb") as f:
+        f.write(await application_form.read())
+
+    with open(aadhaar_path, "wb") as f:
+        f.write(await aadhaar_card.read())
+
+    with open(income_tax_path, "wb") as f:
+        f.write(await income_tax_return.read())
+
+    with open(property_path, "wb") as f:
+        f.write(await property_particulars.read())
+
+    application_document = process_document(processor_name, file_path=application_path)
+    aadhaar_document = process_document(processor_name, file_path=aadhaar_path)
+    income_tax_document = process_document(processor_name, file_path=income_tax_path)
+    property_document = process_document(processor_name, file_path=property_path)
+
+    if application_document:
+        application_data = parse_docs(application_document.text, "obc_certificate", "application_form")
+        os.remove(application_path)
+    else:
+        return {"error": "Application data couldn't be parsed"}
+
+    if aadhaar_document:
+        aadhaar_data = parse_docs(aadhaar_document.text, "obc_certificate", "aadhaar_card")
+        os.remove(aadhaar_path)
+    else:
+        return {"error": "Issue with the Aadhaar card. Please try again"}
+
+    if income_tax_document:
+        income_tax_data = parse_docs(income_tax_document.text, "obc_certificate", "income_tax_return")
+        os.remove(income_tax_path)
+    else:
+        return {"error": "Issue with the Income Tax Return document. Please try again"}
+
+    if property_document:
+        property_data = parse_docs(property_document.text, "obc_certificate", "property_particulars")
+        os.remove(property_path)
+    else:
+        return {"error": "Issue with the Property Particulars document. Please try again"}
+
+    return {
+        "application_data": application_data,
+        "aadhaar_data": aadhaar_data,
+        "income_tax_data": income_tax_data,
+        "property_data": property_data
+    }
+@app.post("/process-residence-certificate/")
+async def process_residence_certificate(
+    application_form: UploadFile = File(...),
+    aadhaar_card: UploadFile = File(...)
+):
+    application_path = f"/tmp/{application_form.filename}"
+    aadhaar_path = f"/tmp/{aadhaar_card.filename}"
+
+    with open(application_path, "wb") as f:
+        f.write(await application_form.read())
+
+    with open(aadhaar_path, "wb") as f:
+        f.write(await aadhaar_card.read())
+
+    application_document = process_document(processor_name, file_path=application_path)
+    aadhaar_document = process_document(processor_name, file_path=aadhaar_path)
+
+    if application_document:
+        application_data = parse_docs(application_document.text, "residence_certificate", "application_form")
+        os.remove(application_path)
+    else:
+        return {"error": "Application data couldn't be parsed"}
+
+    if aadhaar_document:
+        aadhaar_data = parse_docs(aadhaar_document.text, "residence_certificate", "aadhaar_card")
+        os.remove(aadhaar_path)
+    else:
+        return {"error": "Issue with the Aadhaar card. Please try again"}
+
+    return {
+        "application_data": application_data,
+        "aadhaar_data": aadhaar_data
+    }
 # def parse_aadhaar_info(extracted_text: str) -> dict:
 #     response = ollama.chat(model=model_sel, messages=[
 #         {

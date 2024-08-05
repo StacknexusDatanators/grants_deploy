@@ -43,29 +43,35 @@ def detect_orientation_pdf(pdf_path):
         # Convert the image to grayscale
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
+        print("pdf", pdf_path)
+        custom_config = r'--dpi 300 --psm 0 -c min_characters_to_try=5'
+
         # Use Tesseract to detect orientation
-        osd = pytesseract.image_to_osd(gray, output_type=Output.DICT)
+        osd = pytesseract.image_to_osd(gray, config=custom_config, output_type=Output.DICT)
         angle = osd['rotate']
         script = osd['script']
         
         # Check if the image is upside down
-        if angle != 0:
+        if angle == 180:
             print(f"Page {page_num + 1} is upside down. Detected script: {script}")
             # Rotate the image to correct it
             (h, w) = img.shape[:2]
             center = (w // 2, h // 2)
-            M = cv2.getRotationMatrix2D(center, angle, 1.0)
+            M = cv2.getRotationMatrix2D(center, 180, 1.0)
             rotated = cv2.warpAffine(img, M, (w, h))
             
             # Convert the corrected image back to a PIL image and save
             corrected_img = Image.fromarray(cv2.cvtColor(rotated, cv2.COLOR_BGR2RGB))
             corrected_img.save(pdf_path, "PDF", resolution=100.0)
+            print("done")
 
 
 def process_document(processor_name: str, file_path: str) -> documentai.Document:
     client = documentai.DocumentProcessorServiceClient()
-
-    detect_orientation_pdf(file_path)
+    try:
+        detect_orientation_pdf(file_path)
+    except:
+        print("orientation didn't work")
 
 
     # Read the file into memory
@@ -149,6 +155,7 @@ async def process_income(application_form: UploadFile = File(...), aadhaar: Uplo
     aadhaar_document = process_document(processor_name, file_path = aadhaar_path)
 
     if application_document:
+        print(application_document.text)
         application_data = parse_docs(application_document.text, "income_certificate", "application_form")
         os.remove(application_path)
     else:

@@ -11,6 +11,7 @@ from PIL import Image
 import pytesseract
 from pytesseract import Output
 import cv2
+import numpy as np
 
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="./creds/grant01-joby.json"
 import json

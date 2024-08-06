@@ -62,7 +62,7 @@ def detect_orientation_pdf(pdf_path):
 
     # Check if the image is upside down
     if angle != 0:
-        print(f"Page {page_num + 1} is upside down. Detected script: {script}")
+        #print(f"Page {page_num + 1} is upside down. Detected script: {script}")
         # Rotate the image to correct it
         (h, w) = img.shape[:2]
         center = (w // 2, h // 2)

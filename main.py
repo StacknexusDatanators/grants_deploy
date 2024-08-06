@@ -144,7 +144,7 @@ def parse_docs(extracted_txt: str, doc_parent: str, doc_child: str) -> dict:
             'role':'user',
             'content': prompt_template.format(extracted_txt)
         }
-    ], format = "json", temperature = 0.1)
+    ], format = "json")
 
     output = response["message"]["content"]
     final_out = literal_eval(output)
@@ -168,13 +168,13 @@ async def process_income(application_form: UploadFile = File(...), aadhaar: Uplo
         application_data = parse_docs(application_document.text, "income_certificate", "application_form")
         os.remove(application_path)
     else:
-        return {"error": "Application data couldn't be parsed"}
+        raise HTTPException(status_code=422, detail="Unrecognized entity: Application data couldn't be parsed")
     
     if aadhaar_document:
         aadhaar_data = parse_docs(aadhaar_document.text, "income_certificate", "aadhaar_card")
         os.remove(aadhaar_path)
     else:
-        return {"error": "Issue with the Aadhaar card. Please try again"}
+        raise HTTPException(status_code=422, detail="Unrecognized entity: Issue with the Aadhaar card. Please try again")
     
     return {"application_data": application_data, "aadhaar_data": aadhaar_data}
 
@@ -202,19 +202,19 @@ async def process_community_dob(study_certificate: UploadFile = File(...), appli
         study_certificate_data = parse_docs(study_certificate_document.text, "community_dob_certificate", "study_certificate")
         os.remove(study_certificate_path)
     else:
-        return {"error": "Study Certificate data couldn't be parsed"}
+        raise HTTPException(status_code=422, detail="Unrecognized entity: Study Certificate data couldn't be parsed")
 
     if application_document:
         application_data = parse_docs(application_document.text, "community_dob_certificate", "application_form")
         os.remove(application_path)
     else:
-        return {"error": "Application data couldn't be parsed"}
+        raise HTTPException(status_code=422, detail="Unrecognized entity: Application data couldn't be parsed")
 
     if aadhaar_document:
         aadhaar_data = parse_docs(aadhaar_document.text, "community_dob_certificate", "aadhaar_card")
         os.remove(aadhaar_path)
     else:
-        return {"error": "Issue with the Aadhaar card. Please try again"}
+        raise HTTPException(status_code=422, detail="Unrecognized entity: Issue with the Aadhaar card. Please try again")
 
     return {
         "study_certificate_data": study_certificate_data,
@@ -240,13 +240,13 @@ async def process_ebc(application_form: UploadFile = File(...), aadhaar_card: Up
         application_data = parse_docs(application_document.text, "ebc_certificate", "application_form")
         os.remove(application_path)
     else:
-        return {"error": "Application data couldn't be parsed"}
+        raise HTTPException(status_code=422, detail="Unrecognized entity: Application data couldn't be parsed")
 
     if aadhaar_document:
         aadhaar_data = parse_docs(aadhaar_document.text, "ebc_certificate", "aadhaar_card")
         os.remove(aadhaar_path)
     else:
-        return {"error": "Issue with the Aadhaar card. Please try again"}
+        raise HTTPException(status_code=422, detail="Unrecognized entity: Issue with the Aadhaar card. Please try again")
 
     return {
         "application_data": application_data,
@@ -271,13 +271,14 @@ async def process_ewc(application_form: UploadFile = File(...), aadhaar_card: Up
         application_data = parse_docs(application_document.text, "economically_weaker_section", "application_form")
         os.remove(application_path)
     else:
-        return {"error": "Application data couldn't be parsed"}
+        raise HTTPException(status_code=422, detail="Unrecognized entity: Application data couldn't be parsed")
 
     if aadhaar_document:
         aadhaar_data = parse_docs(aadhaar_document.text, "economically_weaker_section", "aadhaar_card")
         os.remove(aadhaar_path)
     else:
-        return {"error": "Issue with the Aadhaar card. Please try again"}
+        raise HTTPException(status_code=422, detail="Unrecognized entity: Issue with the Aadhaar card. Please try again")
+
 
     return {
         "application_data": application_data,
@@ -316,25 +317,25 @@ async def process_obc(
         application_data = parse_docs(application_document.text, "obc_certificate", "application_form")
         os.remove(application_path)
     else:
-        return {"error": "Application data couldn't be parsed"}
+        raise HTTPException(status_code=422, detail="Unrecognized entity: Application data couldn't be parsed")
 
     if aadhaar_document:
         aadhaar_data = parse_docs(aadhaar_document.text, "obc_certificate", "aadhaar_card")
         os.remove(aadhaar_path)
     else:
-        return {"error": "Issue with the Aadhaar card. Please try again"}
+        raise HTTPException(status_code=422, detail="Unrecognized entity: Issue with the Aadhaar card. Please try again")
 
     if income_tax_document:
         income_tax_data = parse_docs(income_tax_document.text, "obc_certificate", "income_tax_return")
         os.remove(income_tax_path)
     else:
-        return {"error": "Issue with the Income Tax Return document. Please try again"}
+        raise HTTPException(status_code=422, detail="Unrecognized entity: Issue with the Income Tax Return document. Please try again")
 
     if property_document:
         property_data = parse_docs(property_document.text, "obc_certificate", "property_particulars")
         os.remove(property_path)
     else:
-        return {"error": "Issue with the Property Particulars document. Please try again"}
+        raise HTTPException(status_code=422, detail="Unrecognized entity: Issue with the Property Particulars document. Please try again")
 
     return {
         "application_data": application_data,
@@ -363,13 +364,13 @@ async def process_residence_certificate(
         application_data = parse_docs(application_document.text, "residence_certificate", "application_form")
         os.remove(application_path)
     else:
-        return {"error": "Application data couldn't be parsed"}
+        raise HTTPException(status_code=422, detail="Unrecognized entity: Application data couldn't be parsed")
 
     if aadhaar_document:
         aadhaar_data = parse_docs(aadhaar_document.text, "residence_certificate", "aadhaar_card")
         os.remove(aadhaar_path)
     else:
-        return {"error": "Issue with the Aadhaar card. Please try again"}
+        raise HTTPException(status_code=422, detail="Unrecognized entity: Issue with the Aadhaar card. Please try again")
 
     return {
         "application_data": application_data,

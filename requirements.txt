@@ -3,6 +3,7 @@ aiohttp==3.10.0
 aiosignal==1.3.1
 annotated-types==0.7.0
 anyio==4.4.0
+appnope==0.1.4
 argon2-cffi==23.1.0
 argon2-cffi-bindings==21.2.0
 arrow==1.3.0
@@ -11,6 +12,7 @@ async-lru==2.0.4
 async-timeout==4.0.3
 attrs==23.2.0
 Babel==2.15.0
+backports.functools-lru-cache==2.0.0
 beautifulsoup4==4.12.3
 bleach==6.1.0
 Bottleneck==1.4.0
@@ -42,7 +44,7 @@ google-auth-oauthlib==1.2.1
 google-cloud-bigquery==3.25.0
 google-cloud-core==2.4.1
 google-cloud-documentai==2.30.0
-google-cloud-documentai-toolbox==0.14.0a0
+google-cloud-documentai-toolbox==0.11.1a0
 google-cloud-storage==2.18.0
 google-cloud-vision==3.7.4
 google-crc32c==1.5.0
@@ -58,6 +60,7 @@ httpx==0.27.0
 idna==3.7
 immutabledict==3.0.0
 importlib_metadata==8.2.0
+indic-transliteration==2.3.61
 intervaltree==3.1.0
 ipykernel==6.29.5
 ipython==8.18.1
@@ -65,6 +68,7 @@ ipywidgets==8.1.3
 isoduration==20.11.0
 jedi==0.19.1
 Jinja2==3.1.4
+joblib==1.4.2
 json5==0.9.25
 jsonpointer==3.0.0
 jsonschema==4.23.0
@@ -81,6 +85,7 @@ jupyterlab==4.2.4
 jupyterlab_pygments==0.3.0
 jupyterlab_server==2.27.3
 jupyterlab_widgets==3.0.11
+langdetect==1.0.9
 llvmlite==0.43.0
 lxml==5.2.2
 markdown-it-py==3.0.0
@@ -93,6 +98,7 @@ nbclient==0.10.0
 nbconvert==7.16.4
 nbformat==5.10.4
 nest-asyncio==1.6.0
+nltk==3.8.1
 notebook==7.2.1
 notebook_shim==0.2.4
 numba==0.60.0
@@ -100,6 +106,7 @@ numexpr==2.10.1
 numpy==1.26.4
 oauthlib==3.2.2
 ollama==0.3.1
+opencv-python==4.10.0.84
 overrides==7.7.0
 packaging==24.1
 pandas==2.2.2
@@ -125,6 +132,9 @@ pydantic==2.8.2
 pydantic_core==2.20.1
 pydata-google-auth==1.8.2
 Pygments==2.18.0
+PyMuPDF==1.24.9
+PyMuPDFb==1.24.9
+pytesseract==0.3.10
 python-dateutil==2.9.0.post0
 python-dotenv==1.0.1
 python-json-logger==2.0.7
@@ -135,11 +145,13 @@ pyzmq==26.0.3
 qtconsole==5.5.2
 QtPy==2.4.1
 referencing==0.35.1
+regex==2024.7.24
 requests==2.32.3
 requests-oauthlib==2.0.0
 rfc3339-validator==0.1.4
 rfc3986-validator==0.1.1
 rich==13.7.1
+roman==4.2
 rpds-py==0.19.1
 rsa==4.9
 Send2Trash==1.8.3
@@ -152,9 +164,12 @@ stack-data==0.6.3
 starlette==0.37.2
 tabulate==0.9.0
 terminado==0.18.1
+textblob==0.18.0.post0
 tinycss2==1.3.0
+toml==0.10.2
 tomli==2.0.1
 tornado==6.4.1
+tqdm==4.66.5
 traitlets==5.14.3
 typer==0.12.3
 types-python-dateutil==2.9.0.20240316

@@ -12,6 +12,10 @@ import pytesseract
 from pytesseract import Output
 import cv2
 import numpy as np
+from textblob import TextBlob
+from langdetect import detect
+from indic_transliteration import sanscript
+from indic_transliteration.sanscript import SchemeMap, SCHEMES, transliterate
 
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="./creds/grant01-joby.json"
 import json
@@ -29,49 +33,52 @@ processor_name = "projects/332125695616/locations/us/processors/a6bceed480e9d614
 def detect_orientation_pdf(pdf_path):
     # Open the PDF file
     pdf = fitz.open(pdf_path)
-    
-    for page_num in range(len(pdf)):
-        # Get the page
-        page = pdf[page_num]
 
-        # Convert the PDF page to an image
-        pix = page.get_pixmap()
-        img_data = pix.tobytes("ppm")
-        img = Image.open(io.BytesIO(img_data))
-        img = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
 
-        # Convert the image to grayscale
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    # Get the page
+    page = pdf[0]
 
-        print("pdf", pdf_path)
-        custom_config = r'--dpi 300 --psm 0 -c min_characters_to_try=5'
+    # Convert the PDF page to an image
+    pix = page.get_pixmap()
+    img_data = pix.tobytes("ppm")
+    img = Image.open(io.BytesIO(img_data))
+    img = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
 
-        # Use Tesseract to detect orientation
-        osd = pytesseract.image_to_osd(gray, config=custom_config, output_type=Output.DICT)
-        angle = osd['rotate']
-        script = osd['script']
+    # Convert the image to grayscale
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+    ret, th = cv2.threshold(gray,
+        127,  # threshold value
+        255,  # maximum value assigned to pixel values exceeding the threshold
+        cv2.THRESH_BINARY)   # constant
+
+    print("pdf", pdf_path)
+    custom_config = r'--dpi 300 --psm 0 -c min_characters_to_try=5'
+
+    # Use Tesseract to detect orientation
+    osd = pytesseract.image_to_osd(th, config=custom_config, output_type=Output.DICT)
+    angle = osd['rotate']
+    script = osd['script']
+
+    # Check if the image is upside down
+    if angle != 0:
+        print(f"Page {page_num + 1} is upside down. Detected script: {script}")
+        # Rotate the image to correct it
+        (h, w) = img.shape[:2]
+        center = (w // 2, h // 2)
+        M = cv2.getRotationMatrix2D(center, angle, 1.0)
+        rotated = cv2.warpAffine(img, M, (w, h))
         
-        # Check if the image is upside down
-        if angle == 180:
-            print(f"Page {page_num + 1} is upside down. Detected script: {script}")
-            # Rotate the image to correct it
-            (h, w) = img.shape[:2]
-            center = (w // 2, h // 2)
-            M = cv2.getRotationMatrix2D(center, 180, 1.0)
-            rotated = cv2.warpAffine(img, M, (w, h))
-            
-            # Convert the corrected image back to a PIL image and save
-            corrected_img = Image.fromarray(cv2.cvtColor(rotated, cv2.COLOR_BGR2RGB))
-            corrected_img.save(pdf_path, "PDF", resolution=100.0)
-            print("done")
+        # Convert the corrected image back to a PIL image and save
+        corrected_img = Image.fromarray(cv2.cvtColor(rotated, cv2.COLOR_BGR2RGB))
+        corrected_img.save(pdf_path, "PDF", resolution=100.0)
+    print("done")
 
 
 def process_document(processor_name: str, file_path: str) -> documentai.Document:
     client = documentai.DocumentProcessorServiceClient()
-    try:
-        detect_orientation_pdf(file_path)
-    except:
-        print("orientation didn't work")
+
+    detect_orientation_pdf(file_path)
 
 
     # Read the file into memory
@@ -128,6 +135,9 @@ async def process_pdf(file: UploadFile = File(...)):
         return {"error": "Failed to process the document"}
 
 def parse_docs(extracted_txt: str, doc_parent: str, doc_child: str) -> dict:
+    lang = detect(extracted_txt)
+    if lang == 'te':
+        extracted_txt = transliterate(extracted_txt, sanscript.TELUGU, sanscript.HK)
     prompt_template = prompts_superset[doc_parent][doc_child]
     response = ollama.chat(model=model_sel, messages = [
         {
@@ -155,7 +165,6 @@ async def process_income(application_form: UploadFile = File(...), aadhaar: Uplo
     aadhaar_document = process_document(processor_name, file_path = aadhaar_path)
 
     if application_document:
-        print(application_document.text)
         application_data = parse_docs(application_document.text, "income_certificate", "application_form")
         os.remove(application_path)
     else:

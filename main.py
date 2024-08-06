@@ -17,7 +17,7 @@ from langdetect import detect
 from indic_transliteration import sanscript
 from indic_transliteration.sanscript import SchemeMap, SCHEMES, transliterate
 
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="./creds/grant01-joby.json"
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="../../notebook/creds/grant01-joby.json"
 import json
 
 with open('prompt_template.json', 'r') as file:
@@ -121,7 +121,7 @@ async def process_pdf(file: UploadFile = File(...)):
                     "file_type": os.path.splitext(file.filename)[1],
                     "chunk_number": chunk_number,
                     "content": chunk_content,
-                }
+              }
             )
 
         combined_list = [t["content"] for t in extracted_data]
@@ -142,8 +142,8 @@ def parse_docs(extracted_txt: str, doc_parent: str, doc_child: str) -> dict:
     response = ollama.chat(model=model_sel, messages = [
         {
             'role':'user',
-            'content': prompt_template.format(extracted_txt)
-        }
+            'content': prompt_template+extracted_txt
+      }
     ], format = "json")
 
     output = response["message"]["content"]
@@ -220,7 +220,7 @@ async def process_community_dob(study_certificate: UploadFile = File(...), appli
         "study_certificate_data": study_certificate_data,
         "application_data": application_data,
         "aadhaar_data": aadhaar_data
-    }
+  }
 
 @app.post("/process-ebc-certificate/")
 async def process_ebc(application_form: UploadFile = File(...), aadhaar_card: UploadFile = File(...)):
@@ -251,7 +251,7 @@ async def process_ebc(application_form: UploadFile = File(...), aadhaar_card: Up
     return {
         "application_data": application_data,
         "aadhaar_data": aadhaar_data
-    }
+  }
 
 @app.post("/process-ewc-certificate/")
 async def process_ewc(application_form: UploadFile = File(...), aadhaar_card: UploadFile = File(...)):
@@ -283,7 +283,7 @@ async def process_ewc(application_form: UploadFile = File(...), aadhaar_card: Up
     return {
         "application_data": application_data,
         "aadhaar_data": aadhaar_data
-    }
+  }
 @app.post("/process-obc-certificate/")
 async def process_obc(
     application_form: UploadFile = File(...),
@@ -342,7 +342,7 @@ async def process_obc(
         "aadhaar_data": aadhaar_data,
         "income_tax_data": income_tax_data,
         "property_data": property_data
-    }
+  }
 @app.post("/process-residence-certificate/")
 async def process_residence_certificate(
     application_form: UploadFile = File(...),
@@ -375,7 +375,7 @@ async def process_residence_certificate(
     return {
         "application_data": application_data,
         "aadhaar_data": aadhaar_data
-    }
+  }
     
 
 if __name__ == "__main__":

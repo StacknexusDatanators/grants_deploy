@@ -97,7 +97,7 @@ def process_document(processor_name: str, file_path: str) -> documentai.Document
     result = client.process_document(request=request)
     return result.document
 
-@app.post("/process-pdf/")
+#@app.post("/process-pdf/")
 async def process_pdf(file: UploadFile = File(...)):
     file_path = f"/tmp/{file.filename}"
     with open(file_path, "wb") as f:
@@ -144,7 +144,7 @@ def parse_docs(extracted_txt: str, doc_parent: str, doc_child: str) -> dict:
             'role':'user',
             'content': prompt_template.format(extracted_txt)
         }
-    ], format = "json")
+    ], format = "json", temperature = 0.1)
 
     output = response["message"]["content"]
     final_out = literal_eval(output)

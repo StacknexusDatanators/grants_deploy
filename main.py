@@ -18,7 +18,8 @@ from langdetect import detect
 from indic_transliteration import sanscript
 from indic_transliteration.sanscript import SchemeMap, SCHEMES, transliterate
 
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="./creds/grant01-joby.json"
+#os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="./creds/grant01-joby.json"
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="../../notebook/creds/grant01-joby.json"
 import json
 
 with open('prompt_template.json', 'r') as file:
@@ -78,8 +79,10 @@ def detect_orientation_pdf(pdf_path):
 
 def process_document(processor_name: str, file_path: str) -> documentai.Document:
     client = documentai.DocumentProcessorServiceClient()
-
-    detect_orientation_pdf(file_path)
+    try:
+        detect_orientation_pdf(file_path)
+    except:
+        return None
 
 
     # Read the file into memory
@@ -103,7 +106,6 @@ async def process_pdf(file: UploadFile = File(...)):
     file_path = f"/tmp/{file.filename}"
     with open(file_path, "wb") as f:
         f.write(await file.read())
-
     document = process_document(processor_name, file_path=file_path)
 
     if document:

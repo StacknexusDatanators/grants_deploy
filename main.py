@@ -5,13 +5,14 @@ from typing import List, Dict
 import ollama
 from ast import literal_eval
 import time 
-import fitz  # PyMuPDF
+import fitz  
 import io
 from PIL import Image
 import pytesseract
 from pytesseract import Output
 import cv2
 import numpy as np
+from fastapi import HTTPException
 from textblob import TextBlob
 from langdetect import detect
 from indic_transliteration import sanscript
@@ -164,13 +165,16 @@ async def process_income(application_form: UploadFile = File(...), aadhaar: Uplo
     application_document = process_document(processor_name, file_path=application_path)
     aadhaar_document = process_document(processor_name, file_path = aadhaar_path)
 
+
     if application_document:
+        print("Application Form Content:", application_document.text)
         application_data = parse_docs(application_document.text, "income_certificate", "application_form")
         os.remove(application_path)
     else:
         raise HTTPException(status_code=422, detail="Unrecognized entity: Application data couldn't be parsed")
     
     if aadhaar_document:
+        print("Aadhaar Form Content:", aadhaar_document.text)
         aadhaar_data = parse_docs(aadhaar_document.text, "income_certificate", "aadhaar_card")
         os.remove(aadhaar_path)
     else:

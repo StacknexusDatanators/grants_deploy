@@ -19,6 +19,9 @@ from indic_transliteration import sanscript
 from indic_transliteration.sanscript import SchemeMap, SCHEMES, transliterate
 import multiprocessing
 import re
+
+
+
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="./creds/grant01-joby.json"
 #os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="../../notebook/creds/grant01-joby.json"
 import json
@@ -34,7 +37,7 @@ with open("prompt_field.json", 'r') as file:
 
 
 app = FastAPI()
-model_sel = "llama3.1"
+model_sel = "llama3_datanator"
 # If you already have a Document AI Processor in your project, assign the full processor resource name here.
 processor_name = "projects/332125695616/locations/us/processors/a6bceed480e9d614"
 
@@ -73,36 +76,37 @@ def detect_orientation_pdf(pdf_path):
         127,  # threshold value
         255,  # maximum value assigned to pixel values exceeding the threshold
         cv2.THRESH_BINARY)   # constant
+    img_out =  Image.fromarray(th)
+    img_out.save(pdf_path, "PDF", resolution=100.0)
+    # print("pdf", pdf_path)
+    # custom_config = r'--dpi 300 --psm 0 -c min_characters_to_try=5'
 
-    print("pdf", pdf_path)
-    custom_config = r'--dpi 300 --psm 0 -c min_characters_to_try=5'
+    # # Use Tesseract to detect orientation
+    # osd = pytesseract.image_to_osd(th, config=custom_config, output_type=Output.DICT)
+    # angle = osd['rotate']
+    # script = osd['script']
 
-    # Use Tesseract to detect orientation
-    osd = pytesseract.image_to_osd(th, config=custom_config, output_type=Output.DICT)
-    angle = osd['rotate']
-    script = osd['script']
-
-    # Check if the image is upside down
-    if angle != 0:
-        #print(f"Page {page_num + 1} is upside down. Detected script: {script}")
-        # Rotate the image to correct it
-        (h, w) = img.shape[:2]
-        center = (w // 2, h // 2)
-        M = cv2.getRotationMatrix2D(center, angle, 1.0)
-        rotated = cv2.warpAffine(img, M, (w, h))
+    # # Check if the image is upside down
+    # if angle != 0:
+    #     #print(f"Page {page_num + 1} is upside down. Detected script: {script}")
+    #     # Rotate the image to correct it
+    #     (h, w) = img.shape[:2]
+    #     center = (w // 2, h // 2)
+    #     M = cv2.getRotationMatrix2D(center, angle, 1.0)
+    #     rotated = cv2.warpAffine(img, M, (w, h))
         
-        # Convert the corrected image back to a PIL image and save
-        corrected_img = Image.fromarray(cv2.cvtColor(rotated, cv2.COLOR_BGR2RGB))
-        corrected_img.save(pdf_path, "PDF", resolution=100.0)
-    print("done")
+    #     # Convert the corrected image back to a PIL image and save
+    #     corrected_img = Image.fromarray(cv2.cvtColor(rotated, cv2.COLOR_BGR2RGB))
+    #     corrected_img.save(pdf_path, "PDF", resolution=100.0)
+    # print("done")
 
 
 def process_document(processor_name: str, file_path: str) -> documentai.Document:
     client = documentai.DocumentProcessorServiceClient()
-    try:
-        detect_orientation_pdf(file_path)
-    except:
-        return None
+    # try:
+    # detect_orientation_pdf(file_path)
+    # except:
+    #     return None
 
 
     # Read the file into memory
@@ -163,7 +167,7 @@ def query_ollama(prompt):
                 'content': prompt
         }
         ])
-    return response["message"]["content"]
+    return response["message"]["content"].split("\n")[0]
 
 def clean_text(input_string, regex_pattern):
     match = re.search(regex_pattern, input_string)

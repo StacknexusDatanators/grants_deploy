@@ -17,20 +17,40 @@ from textblob import TextBlob
 from langdetect import detect
 from indic_transliteration import sanscript
 from indic_transliteration.sanscript import SchemeMap, SCHEMES, transliterate
-
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="./creds/grant01-joby.json"
-#os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="../../notebook/creds/grant01-joby.json"
+import multiprocessing
+import re
+#os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="./creds/grant01-joby.json"
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="../../notebook/creds/grant01-joby.json"
 import json
 
-with open('prompt_template.json', 'r') as file:
-    prompts_superset = json.load(file)
+# with open('prompt_template.json', 'r') as file:
+#     prompts_superset = json.load(file)
+
+with open("field_lookup.json", 'r') as file:
+    fields_lookup_dict = json.load(file)
+
+with open("prompt_field.json", 'r') as file:
+    prompt_field = json.load(file)
 
 
 app = FastAPI()
-model_sel = "vicuna:7b"
+model_sel = "llama3.1"
 # If you already have a Document AI Processor in your project, assign the full processor resource name here.
 processor_name = "projects/332125695616/locations/us/processors/a6bceed480e9d614"
 
+def jaccard_similarity(str1, str2):
+    # Convert strings to sets of characters
+    set1 = set(str1)
+    set2 = set(str2)
+    
+    # Calculate the intersection and union of the sets
+    intersection = len(set1 & set2)
+    union = len(set1 | set2)
+    
+    # Calculate the Jaccard similarity score
+    similarity = intersection / union
+    
+    return similarity
 
 def detect_orientation_pdf(pdf_path):
     # Open the PDF file
@@ -136,22 +156,39 @@ async def process_pdf(file: UploadFile = File(...)):
         return {"text": combined_str}
     else:
         return {"error": "Failed to process the document"}
+def query_ollama(prompt):
+    response = ollama.chat(model=model_sel, messages = [
+            {
+                'role':'user',
+                'content': prompt
+        }
+        ])
+    return response["message"]["content"]
+
+def clean_text(input_string, regex_pattern):
+    match = re.search(regex_pattern, input_string)
+    if match:
+        return match.group(0)
+    else:
+        return input_string
+
 
 def parse_docs(extracted_txt: str, doc_parent: str, doc_child: str) -> dict:
     lang = detect(extracted_txt)
     if lang == 'te':
         extracted_txt = transliterate(extracted_txt, sanscript.TELUGU, sanscript.HK)
-    prompt_template = prompts_superset[doc_parent][doc_child]
-    response = ollama.chat(model=model_sel, messages = [
-        {
-            'role':'user',
-            'content': prompt_template+extracted_txt
-      }
-    ], format = "json")
-
-    output = response["message"]["content"]
-    final_out = literal_eval(output)
-    return final_out
+    fields = fields_lookup_dict[doc_parent][doc_child]
+    # prompt_template = prompts_superset[doc_parent][doc_child]
+    out_dict = {}
+    prompts = [prompt_field[f]+extracted_txt for f in fields]
+    with multiprocessing.Pool(len(fields.keys())) as pool:
+        results = pool.map(query_ollama, prompts)
+    print(results)
+    for r in range(len(results)):
+        out_dict[list(fields.keys())[r]] = clean_text(results[r], fields[list(fields.keys())[r]])
+    
+    # final_out = literal_eval(output)
+    return out_dict
 
 @app.post("/process-income-cert/")
 async def process_income(application_form: UploadFile = File(...), aadhaar: UploadFile = File(...)):
@@ -169,19 +206,41 @@ async def process_income(application_form: UploadFile = File(...), aadhaar: Uplo
 
 
     if application_document:
-        print("Application Form Content:", application_document.text)
+
         application_data = parse_docs(application_document.text, "income_certificate", "application_form")
         os.remove(application_path)
     else:
         raise HTTPException(status_code=422, detail="Unrecognized entity: Application data couldn't be parsed")
     
     if aadhaar_document:
-        print("Aadhaar Form Content:", aadhaar_document.text)
+
         aadhaar_data = parse_docs(aadhaar_document.text, "income_certificate", "aadhaar_card")
         os.remove(aadhaar_path)
     else:
         raise HTTPException(status_code=422, detail="Unrecognized entity: Issue with the Aadhaar card. Please try again")
     
+    ### extract name and number from aadhaar
+    aadhaar_num = ""
+    for k,v in aadhaar_data.items():
+        if  "aadhaar" in k.lower():
+            aadhaar_num = v
+    aadhaar_name = ""
+    for k,v in aadhaar_data.items():
+        if "name" in k.lower():
+            aadhaar_name = v
+
+    # ### extract name and number from application
+    # application_num = ""
+    # for k,v in application_data.items():
+    #     if  "aadhaar" in k.lower():
+    #         application_num = v
+    # application_name = ""
+    # for k,v in application_data.items():
+    #     if "name" in k.lower():
+    #         application_name = v
+
+    # name_score = jaccard_similarity(aadhaar_name, application_name)
+    # aadhaar_score = jaccard_similarity(aadhaar_num, application_num)
     return {"application_data": application_data, "aadhaar_data": aadhaar_data}
 
 

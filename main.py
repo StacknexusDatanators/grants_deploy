@@ -34,7 +34,7 @@ with open("prompt_field.json", 'r') as file:
 
 
 app = FastAPI()
-model_sel = "llama3.1"
+model_sel = "llama3.1:70b"
 # If you already have a Document AI Processor in your project, assign the full processor resource name here.
 processor_name = "projects/332125695616/locations/us/processors/a6bceed480e9d614"
 

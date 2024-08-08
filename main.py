@@ -19,8 +19,8 @@ from indic_transliteration import sanscript
 from indic_transliteration.sanscript import SchemeMap, SCHEMES, transliterate
 import multiprocessing
 import re
-#os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="./creds/grant01-joby.json"
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="../../notebook/creds/grant01-joby.json"
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="./creds/grant01-joby.json"
+#os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="../../notebook/creds/grant01-joby.json"
 import json
 
 # with open('prompt_template.json', 'r') as file:
@@ -34,7 +34,7 @@ with open("prompt_field.json", 'r') as file:
 
 
 app = FastAPI()
-model_sel = "llama3.1:70b"
+model_sel = "llama3.1"
 # If you already have a Document AI Processor in your project, assign the full processor resource name here.
 processor_name = "projects/332125695616/locations/us/processors/a6bceed480e9d614"
 

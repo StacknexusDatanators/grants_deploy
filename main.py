@@ -212,7 +212,7 @@ async def process_income(application_form: UploadFile = File(...), aadhaar: Uplo
     aadhaar_document = process_document(processor_name, file_path = aadhaar_path)
 
     if not parse_fields:
-        return {"application_docment": application_document, "aadhaar_document": aadhaar_document}
+        return {"application_docment": application_document.text, "aadhaar_document": aadhaar_document.text}
 
     if application_document:
 
@@ -264,7 +264,7 @@ async def process_community_dob(study_certificate: Optional[UploadFile] = File(N
     aadhaar_document = process_document(processor_name, file_path=aadhaar_path)
 
     if not parse_fields:
-        return {"application_docment": application_document, "aadhaar_document": aadhaar_document}
+        return {"application_docment": application_document.text, "aadhaar_document": aadhaar_document.text}
     if study_certificate_path:
         study_certificate_data = parse_docs(study_certificate_document.text, "community_dob_certificate", "study_certificate")
         os.remove(study_certificate_path)
@@ -311,7 +311,7 @@ async def process_ebc(application_form: UploadFile = File(...), aadhaar_card: Up
     aadhaar_document = process_document(processor_name, file_path=aadhaar_path)
 
     if not parse_fields:
-        return {"application_docment": application_document, "aadhaar_document": aadhaar_document}
+        return {"application_docment": application_document.text, "aadhaar_document": aadhaar_document.text}
     if application_document:
         application_data = parse_docs(application_document.text, "ebc_certificate", "application_form")
         os.remove(application_path)
@@ -351,7 +351,7 @@ async def process_ewc(application_form: UploadFile = File(...), aadhaar_card: Up
 
 
     if not parse_fields:
-        return {"application_docment": application_document, "aadhaar_document": aadhaar_document}
+        return {"application_docment": application_document.text, "aadhaar_document": aadhaar_document.text}
     if application_document:
         application_data = parse_docs(application_document.text, "economically_weaker_section", "application_form")
         os.remove(application_path)
@@ -408,7 +408,15 @@ async def process_obc(
     aadhaar_document = process_document(processor_name, file_path=aadhaar_path)
 
     if not parse_fields:
-        return {"application_docment": application_document, "aadhaar_document": aadhaar_document, "income_tax_document": income_tax_document, "property_document":property_document}
+        if income_tax_return and property_particulars:
+            return {"application_docment": application_document.text, "aadhaar_document": aadhaar_document.text, "income_tax_document": income_tax_document.text, "property_document":property_document.text}
+        elif income_tax_return and not property_particulars:
+            return {"application_docment": application_document.text, "aadhaar_document": aadhaar_document.text, "income_tax_document": income_tax_document.text}
+        elif property_particulars and not income_tax_return:
+            return {"application_docment": application_document.text, "aadhaar_document": aadhaar_document.text, "property_document":property_document.text}
+        else:
+            return {"application_docment": application_document.text, "aadhaar_document": aadhaar_document.text}
+
     if application_document:
         application_data = parse_docs(application_document.text, "obc_certificate", "application_form")
         os.remove(application_path)

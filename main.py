@@ -244,7 +244,7 @@ async def process_income(application_form: UploadFile = File(...), aadhaar: Uplo
 
 
 @app.post("/process-community-dob-certificate/")
-async def process_community_dob(study_certificate: UploadFile = File(...), application_form: UploadFile = File(...), aadhaar_card: UploadFile = File(...), parse_fields: Optional[bool] = True):
+async def process_community_dob(study_certificate: Optional[UploadFile] = File(None), application_form: UploadFile = File(...), aadhaar_card: UploadFile = File(...), parse_fields: Optional[bool] = True):
     study_certificate_path = f"/tmp/{study_certificate.filename}"
     application_path = f"/tmp/{application_form.filename}"
     aadhaar_path = f"/tmp/{aadhaar_card.filename}"
@@ -268,7 +268,7 @@ async def process_community_dob(study_certificate: UploadFile = File(...), appli
         study_certificate_data = parse_docs(study_certificate_document.text, "community_dob_certificate", "study_certificate")
         os.remove(study_certificate_path)
     else:
-        raise HTTPException(status_code=422, detail="Unrecognized entity: Study Certificate data couldn't be parsed")
+        study_certificate_data = {}
 
     if application_document:
         application_data = parse_docs(application_document.text, "community_dob_certificate", "application_form")
@@ -377,8 +377,8 @@ async def process_ewc(application_form: UploadFile = File(...), aadhaar_card: Up
 async def process_obc(
     application_form: UploadFile = File(...),
     aadhaar_card: UploadFile = File(...),
-    income_tax_return: UploadFile = File(...),
-    property_particulars: UploadFile = File(...),
+    income_tax_return: Optional[UploadFile] = File(None),
+    property_particulars:Optional[UploadFile] = File(None),
     parse_fields: Optional[bool] = True
 ):
     application_path = f"/tmp/{application_form.filename}"
@@ -421,13 +421,15 @@ async def process_obc(
         income_tax_data = parse_docs(income_tax_document.text, "obc_certificate", "income_tax_return")
         os.remove(income_tax_path)
     else:
-        raise HTTPException(status_code=422, detail="Unrecognized entity: Issue with the Income Tax Return document. Please try again")
+        income_tax_data = {}
+        # raise HTTPException(status_code=422, detail="Unrecognized entity: Issue with the Income Tax Return document. Please try again")
 
     if property_document:
         property_data = parse_docs(property_document.text, "obc_certificate", "property_particulars")
         os.remove(property_path)
     else:
-        raise HTTPException(status_code=422, detail="Unrecognized entity: Issue with the Property Particulars document. Please try again")
+        property_data = {}
+        # raise HTTPException(status_code=422, detail="Unrecognized entity: Issue with the Property Particulars document. Please try again")
 
     aadhaar_name = aadhaar_data["applicant_name"]
     application_name = application_data["applicant_name"]

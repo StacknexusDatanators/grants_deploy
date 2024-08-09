@@ -384,7 +384,7 @@ async def process_obc(
 ):
     application_path = f"/tmp/{application_form.filename}"
     aadhaar_path = f"/tmp/{aadhaar_card.filename}"
-    if incom_tax_return:
+    if income_tax_return:
         income_tax_path = f"/tmp/{income_tax_return.filename}"
         with open(income_tax_path, "wb") as f:
             f.write(await income_tax_return.read())

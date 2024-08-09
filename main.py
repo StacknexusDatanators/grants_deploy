@@ -1,5 +1,6 @@
 from fastapi import FastAPI, UploadFile, File
 from fastapi.responses import JSONResponse, FileResponse
+from typing import Optional
 
 from google.cloud import documentai_v1beta3 as documentai
 import os

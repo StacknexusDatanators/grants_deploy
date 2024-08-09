@@ -1,4 +1,6 @@
 from fastapi import FastAPI, UploadFile, File
+from fastapi.responses import JSONResponse, FileResponse
+
 from google.cloud import documentai_v1beta3 as documentai
 import os
 from typing import List, Dict
@@ -19,11 +21,12 @@ from indic_transliteration import sanscript
 from indic_transliteration.sanscript import SchemeMap, SCHEMES, transliterate
 import multiprocessing
 import re
+import tempfile
 
 
 
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="./creds/grant01-joby.json"
-#os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="../../notebook/creds/grant01-joby.json"
+#os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="./creds/grant01-joby.json"
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="../../notebook/creds/grant01-joby.json"
 import json
 
 # with open('prompt_template.json', 'r') as file:
@@ -187,7 +190,6 @@ def parse_docs(extracted_txt: str, doc_parent: str, doc_child: str) -> dict:
     prompts = [prompt_field[f]+extracted_txt for f in fields]
     with multiprocessing.Pool(len(fields.keys())) as pool:
         results = pool.map(query_ollama, prompts)
-    print(results)
     for r in range(len(results)):
         out_dict[list(fields.keys())[r]] = clean_text(results[r], fields[list(fields.keys())[r]])
     
@@ -195,7 +197,7 @@ def parse_docs(extracted_txt: str, doc_parent: str, doc_child: str) -> dict:
     return out_dict
 
 @app.post("/process-income-cert/")
-async def process_income(application_form: UploadFile = File(...), aadhaar: UploadFile = File(...)):
+async def process_income(application_form: UploadFile = File(...), aadhaar: UploadFile = File(...), parse_fields: Optional[bool] = True):
     application_path = f"/tmp/{application_form.filename}"
     aadhaar_path = f"/tmp/{aadhaar.filename}"
 
@@ -208,11 +210,13 @@ async def process_income(application_form: UploadFile = File(...), aadhaar: Uplo
     application_document = process_document(processor_name, file_path=application_path)
     aadhaar_document = process_document(processor_name, file_path = aadhaar_path)
 
+    if not parse_fields:
+        return {"application_docment": application_document, "aadhaar_document": aadhaar_document}
 
     if application_document:
 
         application_data = parse_docs(application_document.text, "income_certificate", "application_form")
-        os.remove(application_path)
+        # os.remove(application_path)
     else:
         raise HTTPException(status_code=422, detail="Unrecognized entity: Application data couldn't be parsed")
     
@@ -223,33 +227,23 @@ async def process_income(application_form: UploadFile = File(...), aadhaar: Uplo
     else:
         raise HTTPException(status_code=422, detail="Unrecognized entity: Issue with the Aadhaar card. Please try again")
     
-    ### extract name and number from aadhaar
-    aadhaar_num = ""
-    for k,v in aadhaar_data.items():
-        if  "aadhaar" in k.lower():
-            aadhaar_num = v
-    aadhaar_name = ""
-    for k,v in aadhaar_data.items():
-        if "name" in k.lower():
-            aadhaar_name = v
+    aadhaar_name = aadhaar_data["applicant_name"]
+    application_name = application_data["applicant_name"]
 
-    # ### extract name and number from application
-    # application_num = ""
-    # for k,v in application_data.items():
-    #     if  "aadhaar" in k.lower():
-    #         application_num = v
-    # application_name = ""
-    # for k,v in application_data.items():
-    #     if "name" in k.lower():
-    #         application_name = v
+    name_score = jaccard_similarity(aadhaar_name, application_name)
 
-    # name_score = jaccard_similarity(aadhaar_name, application_name)
-    # aadhaar_score = jaccard_similarity(aadhaar_num, application_num)
-    return {"application_data": application_data, "aadhaar_data": aadhaar_data}
+    response_content = {"application_data": application_data, "aadhaar_data": aadhaar_data, "name_score": name_score}
+    
+    json_response = JSONResponse(content=response_content)
+    with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+        temp_file.write(application_form.file.read())
+        temp_file_path = temp_file.name
+
+    return json_response
 
 
 @app.post("/process-community-dob-certificate/")
-async def process_community_dob(study_certificate: UploadFile = File(...), application_form: UploadFile = File(...), aadhaar_card: UploadFile = File(...)):
+async def process_community_dob(study_certificate: UploadFile = File(...), application_form: UploadFile = File(...), aadhaar_card: UploadFile = File(...), parse_fields: Optional[bool] = True):
     study_certificate_path = f"/tmp/{study_certificate.filename}"
     application_path = f"/tmp/{application_form.filename}"
     aadhaar_path = f"/tmp/{aadhaar_card.filename}"
@@ -267,6 +261,8 @@ async def process_community_dob(study_certificate: UploadFile = File(...), appli
     application_document = process_document(processor_name, file_path=application_path)
     aadhaar_document = process_document(processor_name, file_path=aadhaar_path)
 
+    if not parse_fields:
+        return {"application_docment": application_document, "aadhaar_document": aadhaar_document}
     if study_certificate_document:
         study_certificate_data = parse_docs(study_certificate_document.text, "community_dob_certificate", "study_certificate")
         os.remove(study_certificate_path)
@@ -285,14 +281,21 @@ async def process_community_dob(study_certificate: UploadFile = File(...), appli
     else:
         raise HTTPException(status_code=422, detail="Unrecognized entity: Issue with the Aadhaar card. Please try again")
 
+
+    aadhaar_name = aadhaar_data["applicant_name"]
+    application_name = application_data["applicant_name"]
+
+    name_score = jaccard_similarity(aadhaar_name, application_name)
+
     return {
         "study_certificate_data": study_certificate_data,
         "application_data": application_data,
-        "aadhaar_data": aadhaar_data
+        "aadhaar_data": aadhaar_data,
+        "name_score": name_score
   }
 
 @app.post("/process-ebc-certificate/")
-async def process_ebc(application_form: UploadFile = File(...), aadhaar_card: UploadFile = File(...)):
+async def process_ebc(application_form: UploadFile = File(...), aadhaar_card: UploadFile = File(...), parse_fields: Optional[bool] = True):
     application_path = f"/tmp/{application_form.filename}"
     aadhaar_path = f"/tmp/{aadhaar_card.filename}"
 
@@ -305,6 +308,8 @@ async def process_ebc(application_form: UploadFile = File(...), aadhaar_card: Up
     application_document = process_document(processor_name, file_path=application_path)
     aadhaar_document = process_document(processor_name, file_path=aadhaar_path)
 
+    if not parse_fields:
+        return {"application_docment": application_document, "aadhaar_document": aadhaar_document}
     if application_document:
         application_data = parse_docs(application_document.text, "ebc_certificate", "application_form")
         os.remove(application_path)
@@ -317,13 +322,19 @@ async def process_ebc(application_form: UploadFile = File(...), aadhaar_card: Up
     else:
         raise HTTPException(status_code=422, detail="Unrecognized entity: Issue with the Aadhaar card. Please try again")
 
+    aadhaar_name = aadhaar_data["applicant_name"]
+    application_name = application_data["applicant_name"]
+
+    name_score = jaccard_similarity(aadhaar_name, application_name)
+    
     return {
         "application_data": application_data,
-        "aadhaar_data": aadhaar_data
+        "aadhaar_data": aadhaar_data,
+        "name_score": name_score
   }
 
 @app.post("/process-ewc-certificate/")
-async def process_ewc(application_form: UploadFile = File(...), aadhaar_card: UploadFile = File(...)):
+async def process_ewc(application_form: UploadFile = File(...), aadhaar_card: UploadFile = File(...), parse_fields: Optional[bool] = True):
     application_path = f"/tmp/{application_form.filename}"
     aadhaar_path = f"/tmp/{aadhaar_card.filename}"
 
@@ -336,6 +347,9 @@ async def process_ewc(application_form: UploadFile = File(...), aadhaar_card: Up
     application_document = process_document(processor_name, file_path=application_path)
     aadhaar_document = process_document(processor_name, file_path=aadhaar_path)
 
+
+    if not parse_fields:
+        return {"application_docment": application_document, "aadhaar_document": aadhaar_document}
     if application_document:
         application_data = parse_docs(application_document.text, "economically_weaker_section", "application_form")
         os.remove(application_path)
@@ -348,17 +362,23 @@ async def process_ewc(application_form: UploadFile = File(...), aadhaar_card: Up
     else:
         raise HTTPException(status_code=422, detail="Unrecognized entity: Issue with the Aadhaar card. Please try again")
 
+    aadhaar_name = aadhaar_data["applicant_name"]
+    application_name = application_data["applicant_name"]
+
+    name_score = jaccard_similarity(aadhaar_name, application_name)
 
     return {
         "application_data": application_data,
-        "aadhaar_data": aadhaar_data
+        "aadhaar_data": aadhaar_data,
+        "name_score": name_score
   }
 @app.post("/process-obc-certificate/")
 async def process_obc(
     application_form: UploadFile = File(...),
     aadhaar_card: UploadFile = File(...),
     income_tax_return: UploadFile = File(...),
-    property_particulars: UploadFile = File(...)
+    property_particulars: UploadFile = File(...),
+    parse_fields: Optional[bool] = True
 ):
     application_path = f"/tmp/{application_form.filename}"
     aadhaar_path = f"/tmp/{aadhaar_card.filename}"
@@ -382,6 +402,8 @@ async def process_obc(
     income_tax_document = process_document(processor_name, file_path=income_tax_path)
     property_document = process_document(processor_name, file_path=property_path)
 
+    if not parse_fields:
+        return {"application_docment": application_document, "aadhaar_document": aadhaar_document, "income_tax_document": income_tax_document, "property_document":property_document}
     if application_document:
         application_data = parse_docs(application_document.text, "obc_certificate", "application_form")
         os.remove(application_path)
@@ -406,16 +428,23 @@ async def process_obc(
     else:
         raise HTTPException(status_code=422, detail="Unrecognized entity: Issue with the Property Particulars document. Please try again")
 
+    aadhaar_name = aadhaar_data["applicant_name"]
+    application_name = application_data["applicant_name"]
+
+    name_score = jaccard_similarity(aadhaar_name, application_name)
+
     return {
         "application_data": application_data,
         "aadhaar_data": aadhaar_data,
         "income_tax_data": income_tax_data,
-        "property_data": property_data
+        "property_data": property_data,
+        "name_score": name_score
   }
 @app.post("/process-residence-certificate/")
 async def process_residence_certificate(
     application_form: UploadFile = File(...),
-    aadhaar_card: UploadFile = File(...)
+    aadhaar_card: UploadFile = File(...),
+    parse_fields: Optional[bool] = True
 ):
     application_path = f"/tmp/{application_form.filename}"
     aadhaar_path = f"/tmp/{aadhaar_card.filename}"
@@ -429,6 +458,9 @@ async def process_residence_certificate(
     application_document = process_document(processor_name, file_path=application_path)
     aadhaar_document = process_document(processor_name, file_path=aadhaar_path)
 
+    if not parse_fields:
+        return {"application_docment": application_document, "aadhaar_document": aadhaar_document}
+        
     if application_document:
         application_data = parse_docs(application_document.text, "residence_certificate", "application_form")
         os.remove(application_path)
@@ -441,9 +473,15 @@ async def process_residence_certificate(
     else:
         raise HTTPException(status_code=422, detail="Unrecognized entity: Issue with the Aadhaar card. Please try again")
 
+    aadhaar_name = aadhaar_data["applicant_name"]
+    application_name = application_data["applicant_name"]
+
+    name_score = jaccard_similarity(aadhaar_name, application_name)
+
     return {
         "application_data": application_data,
-        "aadhaar_data": aadhaar_data
+        "aadhaar_data": aadhaar_data,
+        "name_score": name_score
   }
     
 

@@ -421,7 +421,7 @@ async def process_obc(
     else:
         raise HTTPException(status_code=422, detail="Unrecognized entity: Issue with the Aadhaar card. Please try again")
 
-    if incom_tax_return:
+    if income_tax_return:
         income_tax_data = parse_docs(income_tax_document.text, "obc_certificate", "income_tax_return")
         os.remove(income_tax_path)
     else:

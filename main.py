@@ -26,8 +26,8 @@ import tempfile
 
 
 
-#os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="./creds/grant01-joby.json"
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="../../notebook/creds/grant01-joby.json"
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="./creds/grant01-joby.json"
+#os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="../../notebook/creds/grant01-joby.json"
 import json
 
 # with open('prompt_template.json', 'r') as file:

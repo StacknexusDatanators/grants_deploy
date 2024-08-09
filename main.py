@@ -248,9 +248,11 @@ async def process_community_dob(study_certificate: Optional[UploadFile] = File(N
     study_certificate_path = f"/tmp/{study_certificate.filename}"
     application_path = f"/tmp/{application_form.filename}"
     aadhaar_path = f"/tmp/{aadhaar_card.filename}"
+    if study_certificate_path:
+        with open(study_certificate_path, "wb") as f:
+            f.write(await study_certificate.read())
+        study_certificate_document = process_document(processor_name, file_path=study_certificate_path)
 
-    with open(study_certificate_path, "wb") as f:
-        f.write(await study_certificate.read())
 
     with open(application_path, "wb") as f:
         f.write(await application_form.read())
@@ -258,13 +260,12 @@ async def process_community_dob(study_certificate: Optional[UploadFile] = File(N
     with open(aadhaar_path, "wb") as f:
         f.write(await aadhaar_card.read())
 
-    study_certificate_document = process_document(processor_name, file_path=study_certificate_path)
     application_document = process_document(processor_name, file_path=application_path)
     aadhaar_document = process_document(processor_name, file_path=aadhaar_path)
 
     if not parse_fields:
         return {"application_docment": application_document, "aadhaar_document": aadhaar_document}
-    if study_certificate_document:
+    if study_certificate_path:
         study_certificate_data = parse_docs(study_certificate_document.text, "community_dob_certificate", "study_certificate")
         os.remove(study_certificate_path)
     else:
@@ -334,7 +335,7 @@ async def process_ebc(application_form: UploadFile = File(...), aadhaar_card: Up
         "name_score": name_score
   }
 
-@app.post("/process-ewc-certificate/")
+@app.post("/process-ews-certificate/")
 async def process_ewc(application_form: UploadFile = File(...), aadhaar_card: UploadFile = File(...), parse_fields: Optional[bool] = True):
     application_path = f"/tmp/{application_form.filename}"
     aadhaar_path = f"/tmp/{aadhaar_card.filename}"
@@ -383,8 +384,18 @@ async def process_obc(
 ):
     application_path = f"/tmp/{application_form.filename}"
     aadhaar_path = f"/tmp/{aadhaar_card.filename}"
-    income_tax_path = f"/tmp/{income_tax_return.filename}"
-    property_path = f"/tmp/{property_particulars.filename}"
+    if incom_tax_return:
+        income_tax_path = f"/tmp/{income_tax_return.filename}"
+        with open(income_tax_path, "wb") as f:
+            f.write(await income_tax_return.read())
+        income_tax_document = process_document(processor_name, file_path=income_tax_path)
+
+    if property_particulars:
+        property_path = f"/tmp/{property_particulars.filename}"
+        with open(property_path, "wb") as f:
+            f.write(await property_particulars.read())
+        property_document = process_document(processor_name, file_path=property_path)
+
 
     with open(application_path, "wb") as f:
         f.write(await application_form.read())
@@ -392,16 +403,9 @@ async def process_obc(
     with open(aadhaar_path, "wb") as f:
         f.write(await aadhaar_card.read())
 
-    with open(income_tax_path, "wb") as f:
-        f.write(await income_tax_return.read())
-
-    with open(property_path, "wb") as f:
-        f.write(await property_particulars.read())
 
     application_document = process_document(processor_name, file_path=application_path)
     aadhaar_document = process_document(processor_name, file_path=aadhaar_path)
-    income_tax_document = process_document(processor_name, file_path=income_tax_path)
-    property_document = process_document(processor_name, file_path=property_path)
 
     if not parse_fields:
         return {"application_docment": application_document, "aadhaar_document": aadhaar_document, "income_tax_document": income_tax_document, "property_document":property_document}
@@ -417,14 +421,14 @@ async def process_obc(
     else:
         raise HTTPException(status_code=422, detail="Unrecognized entity: Issue with the Aadhaar card. Please try again")
 
-    if income_tax_document:
+    if incom_tax_return:
         income_tax_data = parse_docs(income_tax_document.text, "obc_certificate", "income_tax_return")
         os.remove(income_tax_path)
     else:
         income_tax_data = {}
         # raise HTTPException(status_code=422, detail="Unrecognized entity: Issue with the Income Tax Return document. Please try again")
 
-    if property_document:
+    if property_particulars:
         property_data = parse_docs(property_document.text, "obc_certificate", "property_particulars")
         os.remove(property_path)
     else:

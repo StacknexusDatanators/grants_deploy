@@ -245,10 +245,11 @@ async def process_income(application_form: UploadFile = File(...), aadhaar: Uplo
 
 @app.post("/process-community-dob-certificate/")
 async def process_community_dob(study_certificate: Optional[UploadFile] = File(None), application_form: UploadFile = File(...), aadhaar_card: UploadFile = File(...), parse_fields: Optional[bool] = True):
-    study_certificate_path = f"/tmp/{study_certificate.filename}"
+   
     application_path = f"/tmp/{application_form.filename}"
     aadhaar_path = f"/tmp/{aadhaar_card.filename}"
     if study_certificate_path:
+        study_certificate_path = f"/tmp/{study_certificate.filename}"
         with open(study_certificate_path, "wb") as f:
             f.write(await study_certificate.read())
         study_certificate_document = process_document(processor_name, file_path=study_certificate_path)

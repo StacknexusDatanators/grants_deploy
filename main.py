@@ -41,7 +41,7 @@ with open("prompt_field.json", 'r') as file:
 
 
 app = FastAPI()
-model_sel = "llama3_datanator"
+model_sel = "llama3_datanators"
 # If you already have a Document AI Processor in your project, assign the full processor resource name here.
 processor_name = "projects/332125695616/locations/us/processors/a6bceed480e9d614"
 
@@ -58,7 +58,50 @@ def jaccard_similarity(str1, str2):
     similarity = intersection / union
     
     return similarity
+@app.post("/process-income-cert/")
+async def process_income(application_form: UploadFile = File(...), aadhaar: UploadFile = File(...), parse_fields: Optional[bool] = True):
+    application_path = f"/tmp/{application_form.filename}"
+    aadhaar_path = f"/tmp/{aadhaar.filename}"
 
+    with open(application_path, "wb") as f:
+        f.write(await application_form.read())
+    
+    with open(aadhaar_path, "wb") as f:
+        f.write(await aadhaar.read())
+
+    application_document = process_document(processor_name, file_path=application_path)
+    aadhaar_document = process_document(processor_name, file_path = aadhaar_path)
+
+    if not parse_fields:
+        return {"application_docment": application_document.text, "aadhaar_document": aadhaar_document.text}
+
+    if application_document:
+
+        application_data = parse_docs(application_document.text, "income_certificate", "application_form")
+        # os.remove(application_path)
+    else:
+        raise HTTPException(status_code=422, detail="Unrecognized entity: Application data couldn't be parsed")
+    
+    if aadhaar_document:
+
+        aadhaar_data = parse_docs(aadhaar_document.text, "income_certificate", "aadhaar_card")
+        os.remove(aadhaar_path)
+    else:
+        raise HTTPException(status_code=422, detail="Unrecognized entity: Issue with the Aadhaar card. Please try again")
+    
+    aadhaar_name = aadhaar_data["applicant_name"]
+    application_name = application_data["applicant_name"]
+
+    name_score = jaccard_similarity(aadhaar_name, application_name)
+
+    response_content = {"application_data": application_data, "aadhaar_data": aadhaar_data, "name_score": name_score}
+    
+    json_response = JSONResponse(content=response_content)
+    with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+        temp_file.write(application_form.file.read())
+        temp_file_path = temp_file.name
+
+    return json_response    
 def detect_orientation_pdf(pdf_path):
     # Open the PDF file
     pdf = fitz.open(pdf_path)
@@ -222,8 +265,18 @@ async def process_income(application_form: UploadFile = File(...), aadhaar: Uplo
         raise HTTPException(status_code=422, detail="Unrecognized entity: Application data couldn't be parsed")
     
     if aadhaar_document:
+        # Perform the regex search on the aadhaar_document text
+        aadhaar_number_regex = r'\d{4}\s\d{4}\s\d{4}'
+        aadhaar_number_match = re.search(aadhaar_number_regex, aadhaar_document.text)
 
+        if aadhaar_number_match:
+            extracted_aadhaar_number = aadhaar_number_match.group().replace(" ", "")
+        else:
+            raise HTTPException(status_code=422, detail="Aadhaar number not found in the document.")
+        
         aadhaar_data = parse_docs(aadhaar_document.text, "income_certificate", "aadhaar_card")
+        aadhaar_data['aadhar_number'] = extracted_aadhaar_number
+        
         os.remove(aadhaar_path)
     else:
         raise HTTPException(status_code=422, detail="Unrecognized entity: Issue with the Aadhaar card. Please try again")

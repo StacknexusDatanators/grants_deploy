@@ -5,8 +5,8 @@
 
     "date_of_birth": "[prompt] Extract the date of birth from the provided document content. Ensure that the extracted information is precise and relevant to the 'Date Of Birth' field, formatted as dd/mm/yyyy. [Document Content]",
     
-    "aadhar_number": "[prompt] Give me the 12 digits of the applicant's Aadhaar card number. [Document Content]",
-
+    "aadhar_number": "[prompt] Identify the 12-digit Aadhaar number from the document using the pattern '\\d{4}\\s\\d{4}\\s\\d{4}', which matches the number in the format of four digits followed by a space, repeated three times. Extract the number and return it without spaces. [Document Content]",
+      
     "mobile_number": "[prompt] Extract the mobile number from the provided document content. Ensure that the extracted information is precise and relevant to the 'Mobile No' field, formatted as a 10-digit number. [Document Content]",
 
     "ration_card_number": "[prompt] Extract the Ration Card Number from the provided document content. Ensure that the extracted information is precise and relevant to the 'Ration Card No' field, formatted as a valid alphanumeric string. [Document Content]",

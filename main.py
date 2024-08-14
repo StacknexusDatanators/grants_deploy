@@ -302,7 +302,7 @@ async def process_community_dob(study_certificate: Optional[UploadFile] = File(N
    
     application_path = f"/tmp/{application_form.filename}"
     aadhaar_path = f"/tmp/{aadhaar_card.filename}"
-    if study_certificate_path:
+    if study_certificate:
         study_certificate_path = f"/tmp/{study_certificate.filename}"
         with open(study_certificate_path, "wb") as f:
             f.write(await study_certificate.read())
@@ -320,7 +320,7 @@ async def process_community_dob(study_certificate: Optional[UploadFile] = File(N
 
     if not parse_fields:
         return {"application_docment": application_document.text, "aadhaar_document": aadhaar_document.text}
-    if study_certificate_path:
+    if study_certificate:
         study_certificate_data = parse_docs(study_certificate_document.text, "community_dob_certificate", "study_certificate")
         os.remove(study_certificate_path)
     else:

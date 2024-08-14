@@ -26,8 +26,8 @@ import tempfile
 
 
 
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="./creds/grant01-joby.json"
-#os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="../../notebook/creds/grant01-joby.json"
+#os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="./creds/grant01-joby.json"
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="../../notebook/creds/grant01-joby.json"
 import json
 
 # with open('prompt_template.json', 'r') as file:
@@ -161,17 +161,18 @@ def process_document(processor_name: str, file_path: str) -> documentai.Document
         document_content = f.read()
 
     # Configure the request
-    request = documentai.ProcessRequest(
-        name=processor_name,
-        raw_document=documentai.RawDocument(
-            content=document_content,
-            mime_type="application/pdf"
+    try:
+        request = documentai.ProcessRequest(
+            name=processor_name,
+            raw_document=documentai.RawDocument(
+                content=document_content,
+                mime_type="application/pdf"
+            )
         )
-    )
-
-    result = client.process_document(request=request)
-    return result.document
-
+        result = client.process_document(request=request)
+        return result.document
+    except:
+        return None
 #@app.post("/process-pdf/")
 async def process_pdf(file: UploadFile = File(...)):
     file_path = f"/tmp/{file.filename}"

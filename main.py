@@ -529,7 +529,7 @@ async def process_residence_certificate(
     aadhaar_document = process_document(processor_name, file_path=aadhaar_path)
 
     if not parse_fields:
-        return {"application_docment": application_document.text, "aadhaar_document": aadhaar_document}
+        return {"application_docment": application_document.text, "aadhaar_document": aadhaar_document.text}
         
     if application_document:
         application_data = parse_docs(application_document.text, "residence_certificate", "application_form")

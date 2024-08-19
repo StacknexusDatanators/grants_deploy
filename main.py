@@ -437,8 +437,8 @@ async def process_obc(
     property_particulars:Optional[UploadFile] = File(None),
     parse_fields: Optional[bool] = True
 ):
-    application_path = f"/tmp/{application_form.filename}"
-    aadhaar_path = f"/tmp/{aadhaar_card.filename}"
+    application_path = f"/tmp/{application_form.filename.replace(".pdf", "")}_application.pdf"
+    aadhaar_path = f"/tmp/{aadhaar_card.filename.replace(".pdf", "")}_aadhaar.pdf"
     if income_tax_return:
         income_tax_path = f"/tmp/{income_tax_return.filename}"
         with open(income_tax_path, "wb") as f:
@@ -529,7 +529,7 @@ async def process_residence_certificate(
     aadhaar_document = process_document(processor_name, file_path=aadhaar_path)
 
     if not parse_fields:
-        return {"application_docment": application_document, "aadhaar_document": aadhaar_document}
+        return {"application_docment": application_document.text, "aadhaar_document": aadhaar_document}
         
     if application_document:
         application_data = parse_docs(application_document.text, "residence_certificate", "application_form")

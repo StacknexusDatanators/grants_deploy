@@ -437,8 +437,8 @@ async def process_obc(
     property_particulars:Optional[UploadFile] = File(None),
     parse_fields: Optional[bool] = True
 ):
-    application_path = f"/tmp/{application_form.filename.replace(".pdf", "")}_application.pdf"
-    aadhaar_path = f"/tmp/{aadhaar_card.filename.replace(".pdf", "")}_aadhaar.pdf"
+    application_path = f"/tmp/{application_form.filename}_application.pdf"
+    aadhaar_path = f"/tmp/{aadhaar_card.filename}_aadhaar.pdf"
     if income_tax_return:
         income_tax_path = f"/tmp/{income_tax_return.filename}"
         with open(income_tax_path, "wb") as f:

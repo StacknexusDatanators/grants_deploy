@@ -299,7 +299,7 @@ async def process_income(application_form: UploadFile = File(...), aadhaar: Uplo
 
 @app.post("/process-community-dob-certificate/")
 async def process_community_dob(study_certificate: Optional[UploadFile] = File(None), application_form: UploadFile = File(...), aadhaar_card: UploadFile = File(...), parse_fields: Optional[bool] = True):
-   
+    start_time = time.time()
     application_path = f"/tmp/{application_form.filename}"
     aadhaar_path = f"/tmp/{aadhaar_card.filename}"
     if study_certificate:
@@ -343,7 +343,9 @@ async def process_community_dob(study_certificate: Optional[UploadFile] = File(N
     application_name = application_data["applicant_name"]
 
     name_score = jaccard_similarity(aadhaar_name, application_name)
-
+    end_time = time.time()
+    execution_time = end_time - start_time
+    print("Execution Time: {execution_time} seconds")
     return {
         "study_certificate_data": study_certificate_data,
         "application_data": application_data,

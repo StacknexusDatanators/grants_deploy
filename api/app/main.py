@@ -26,8 +26,9 @@ import tempfile
 
 
 
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="./creds/grant01-joby.json"
-#os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="../../notebook/creds/grant01-joby.json"
+#os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="./creds/grant01-joby.json"
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="../../notebook/creds/grant01-joby.json"
+
 import json
 
 # with open('prompt_template.json', 'r') as file:
@@ -41,9 +42,9 @@ with open("prompt_field.json", 'r') as file:
 
 
 app = FastAPI()
-model_sel = "llama3_datanators"
+model_sel = "llama31_datanator"
 # If you already have a Document AI Processor in your project, assign the full processor resource name here.
-processor_name = "projects/332125695616/locations/us/processors/a6bceed480e9d614"
+processor_name = "projects/332125695616/locations/us/processors/d80edcf94f1c45c2"
 
 def jaccard_similarity(str1, str2):
     # Convert strings to sets of characters
@@ -161,18 +162,18 @@ def process_document(processor_name: str, file_path: str) -> documentai.Document
         document_content = f.read()
 
     # Configure the request
-    try:
-        request = documentai.ProcessRequest(
-            name=processor_name,
-            raw_document=documentai.RawDocument(
-                content=document_content,
-                mime_type="application/pdf"
-            )
+    # try:
+    request = documentai.ProcessRequest(
+        name=processor_name,
+        raw_document=documentai.RawDocument(
+            content=document_content,
+            mime_type="application/pdf"
         )
-        result = client.process_document(request=request)
-        return result.document
-    except:
-        return None
+    )
+    result = client.process_document(request=request)
+    return result.document
+    # except:
+    #     return None
 #@app.post("/process-pdf/")
 async def process_pdf(file: UploadFile = File(...)):
     file_path = f"/tmp/{file.filename}"
@@ -215,7 +216,28 @@ def query_ollama(prompt):
                 'content': prompt
         }
         ])
-    return response["message"]["content"].split("\n")[0]
+    
+    # Get the response content
+    content = response["message"]["content"].split("\n")[0]
+    
+    # Remove common pre-text patterns
+    # Patterns like "The full name is:", "According to the document:", etc.
+    patterns_to_remove = [
+        r"^.*?(?:is|are|was|were):\s*",  # Remove "The name is: " -> keep what's after
+        r"^.*?(?:mentioned|provided|stated|indicated)\s+(?:in|on|as)\s+.*?:\s*",
+        r"^(?:The|A|An)\s+.*?(?:is|are|was|were)\s+",  # Remove "The applicant name is "
+        r"^According to.*?[,:]\s*",
+        r"^Based on.*?[,:]\s*",
+        r"^As (?:mentioned|stated|per).*?[,:]\s*",
+    ]
+    
+    for pattern in patterns_to_remove:
+        content = re.sub(pattern, '', content, flags=re.IGNORECASE)
+    
+    # Clean up any remaining leading/trailing whitespace or quotes
+    content = content.strip().strip('"\'')
+    
+    return content
 
 def clean_text(input_string, regex_pattern):
     match = re.search(regex_pattern, input_string)

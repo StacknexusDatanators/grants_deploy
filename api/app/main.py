@@ -27,7 +27,7 @@ import tempfile
 
 
 #os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="./creds/grant01-joby.json"
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="../../notebook/creds/grant01-joby.json"
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="../grant01-joby.json"
 
 import json
 
@@ -43,10 +43,86 @@ with open("prompt_field.json", 'r') as file:
 
 app = FastAPI()
 model_sel = "llama31_datanator"
+model_fallback = "llama3"
 # If you already have a Document AI Processor in your project, assign the full processor resource name here.
 processor_name = "projects/332125695616/locations/us/processors/d80edcf94f1c45c2"
 
+def safe_remove_file(file_path: str) -> None:
+    """Safely remove a file if it exists, ignore if it doesn't"""
+    try:
+        if os.path.exists(file_path):
+            os.remove(file_path)
+    except Exception as e:
+        print(f"Warning: Could not remove file {file_path}: {e}")
+
+def validate_aadhaar_checksum(aadhaar_number: str) -> bool:
+    """
+    Validate Aadhaar number using Verhoeff algorithm checksum.
+    Aadhaar uses the Verhoeff algorithm for checksum validation.
+    """
+    # Remove spaces and check if it's 12 digits
+    aadhaar_clean = aadhaar_number.replace(" ", "").replace("-", "")
+    
+    if not aadhaar_clean.isdigit() or len(aadhaar_clean) != 12:
+        return False
+    
+    # Verhoeff algorithm tables
+    multiplication_table = [
+        [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+        [1, 2, 3, 4, 0, 6, 7, 8, 9, 5],
+        [2, 3, 4, 0, 1, 7, 8, 9, 5, 6],
+        [3, 4, 0, 1, 2, 8, 9, 5, 6, 7],
+        [4, 0, 1, 2, 3, 9, 5, 6, 7, 8],
+        [5, 9, 8, 7, 6, 0, 4, 3, 2, 1],
+        [6, 5, 9, 8, 7, 1, 0, 4, 3, 2],
+        [7, 6, 5, 9, 8, 2, 1, 0, 4, 3],
+        [8, 7, 6, 5, 9, 3, 2, 1, 0, 4],
+        [9, 8, 7, 6, 5, 4, 3, 2, 1, 0]
+    ]
+    
+    permutation_table = [
+        [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+        [1, 5, 7, 6, 2, 8, 3, 0, 9, 4],
+        [5, 8, 0, 3, 7, 9, 6, 1, 4, 2],
+        [8, 9, 1, 6, 0, 4, 3, 5, 2, 7],
+        [9, 4, 5, 3, 1, 2, 6, 8, 7, 0],
+        [4, 2, 8, 6, 5, 7, 3, 9, 0, 1],
+        [2, 7, 9, 3, 8, 0, 6, 4, 1, 5],
+        [7, 0, 4, 6, 9, 1, 3, 2, 5, 8]
+    ]
+    
+    # Calculate checksum
+    c = 0
+    for i, digit in enumerate(reversed(aadhaar_clean)):
+        c = multiplication_table[c][permutation_table[(i % 8)][int(digit)]]
+    
+    return c == 0
+
+def validate_mobile_number(mobile_number: str) -> bool:
+    """
+    Validate Indian mobile number format.
+    Valid formats: 10 digits starting with 6, 7, 8, or 9
+    """
+    # Remove spaces, dashes, and plus signs
+    mobile_clean = mobile_number.replace(" ", "").replace("-", "").replace("+", "")
+    
+    # Remove country code if present
+    if mobile_clean.startswith("91") and len(mobile_clean) == 12:
+        mobile_clean = mobile_clean[2:]
+    
+    # Check if it's 10 digits and starts with 6, 7, 8, or 9
+    if len(mobile_clean) == 10 and mobile_clean.isdigit():
+        return mobile_clean[0] in ['6', '7', '8', '9']
+    
+    return False
+
 def jaccard_similarity(str1, str2):
+    # Handle None or empty string cases
+    if not str1 and not str2:
+        return 1.0  # Both empty strings are identical
+    if not str1 or not str2:
+        return 0.0  # One empty, one not - completely different
+    
     # Convert strings to sets of characters
     set1 = set(str1)
     set2 = set(str2)
@@ -54,6 +130,10 @@ def jaccard_similarity(str1, str2):
     # Calculate the intersection and union of the sets
     intersection = len(set1 & set2)
     union = len(set1 | set2)
+    
+    # Avoid division by zero (shouldn't happen after above checks, but safety first)
+    if union == 0:
+        return 0.0
     
     # Calculate the Jaccard similarity score
     similarity = intersection / union
@@ -86,7 +166,7 @@ async def process_income(application_form: UploadFile = File(...), aadhaar: Uplo
     if aadhaar_document:
 
         aadhaar_data = parse_docs(aadhaar_document.text, "income_certificate", "aadhaar_card")
-        os.remove(aadhaar_path)
+        safe_remove_file(aadhaar_path)
     else:
         raise HTTPException(status_code=422, detail="Unrecognized entity: Issue with the Aadhaar card. Please try again")
     
@@ -204,13 +284,15 @@ async def process_pdf(file: UploadFile = File(...)):
         combined_str = "\n".join(combined_list)
 
         # Remove the temporary file
-        os.remove(file_path)
+        safe_remove_file(file_path)
 
         return {"text": combined_str}
     else:
         return {"error": "Failed to process the document"}
-def query_ollama(prompt):
-    response = ollama.chat(model=model_sel, messages = [
+def query_ollama(prompt, model=None):
+    """Query Ollama with specified model or use default model_sel"""
+    selected_model = model if model else model_sel
+    response = ollama.chat(model=selected_model, messages = [
             {
                 'role':'user',
                 'content': prompt
@@ -218,24 +300,44 @@ def query_ollama(prompt):
         ])
     
     # Get the response content
-    content = response["message"]["content"].split("\n")[0]
+    content = response["message"]["content"].strip()
     
-    # Remove common pre-text patterns
-    # Patterns like "The full name is:", "According to the document:", etc.
+    # Remove common verbose patterns that LLMs add
     patterns_to_remove = [
-        r"^.*?(?:is|are|was|were):\s*",  # Remove "The name is: " -> keep what's after
+        # Remove "The ... extracted from ... is:" patterns
+        r"^The\s+.*?(?:extracted|obtained|found|identified|located)\s+(?:from|in|on).*?(?:is|are):\s*",
+        # Remove "The full ... is/are:" patterns
+        r"^The\s+full\s+.*?(?:is|are|was|were):\s*",
+        # Remove "I've identified..." or "I've extracted..." type explanations
+        r"^I(?:'ve|'have|\s+have)\s+(?:identified|extracted|found|located).*?:\s*",
+        r"^.*?(?:identified|extracted|found|located).*?using.*?:\s*",
+        r"^.*?pattern.*?and\s+extracted.*?:\s*",
+        # Remove generic "The ... is:" patterns
+        r"^The\s+.*?(?:is|are|was|were):\s*",
+        r"^.*?(?:is|are|was|were):\s*",
         r"^.*?(?:mentioned|provided|stated|indicated)\s+(?:in|on|as)\s+.*?:\s*",
-        r"^(?:The|A|An)\s+.*?(?:is|are|was|were)\s+",  # Remove "The applicant name is "
+        r"^(?:The|A|An)\s+.*?(?:is|are|was|were)\s+",
+        # Remove "According to/Based on" patterns
         r"^According to.*?[,:]\s*",
         r"^Based on.*?[,:]\s*",
         r"^As (?:mentioned|stated|per).*?[,:]\s*",
+        # Remove "Here is/are" patterns
+        r"^Here\s+(?:is|are)\s+.*?[,:]\s*",
     ]
     
+    # Apply pattern removal (only on first line to avoid breaking multi-line content)
+    first_line = content.split("\n")[0]
     for pattern in patterns_to_remove:
-        content = re.sub(pattern, '', content, flags=re.IGNORECASE)
+        cleaned = re.sub(pattern, '', first_line, flags=re.IGNORECASE)
+        if cleaned != first_line:  # If pattern matched, use cleaned version
+            first_line = cleaned
+            break  # Stop after first match to avoid over-cleaning
+    
+    # Use the cleaned first line
+    content = first_line.strip()
     
     # Clean up any remaining leading/trailing whitespace or quotes
-    content = content.strip().strip('"\'')
+    content = content.strip().strip('"\'').strip()
     
     return content
 
@@ -247,7 +349,7 @@ def clean_text(input_string, regex_pattern):
         return input_string
 
 
-def parse_docs(extracted_txt: str, doc_parent: str, doc_child: str) -> dict:
+def parse_docs(extracted_txt: str, doc_parent: str, doc_child: str, retry_model: str = None) -> dict:
     lang = detect(extracted_txt)
     if lang == 'te':
         extracted_txt = transliterate(extracted_txt, sanscript.TELUGU, sanscript.HK)
@@ -255,13 +357,63 @@ def parse_docs(extracted_txt: str, doc_parent: str, doc_child: str) -> dict:
     # prompt_template = prompts_superset[doc_parent][doc_child]
     out_dict = {}
     prompts = [prompt_field[f]+extracted_txt for f in fields]
-    with multiprocessing.Pool(len(fields.keys())) as pool:
-        results = pool.map(query_ollama, prompts)
+    
+    if retry_model:
+        # When retrying with a specific model, use that model
+        results = [query_ollama(prompt, model=retry_model) for prompt in prompts]
+    else:
+        # Default behavior with multiprocessing
+        with multiprocessing.Pool(len(fields.keys())) as pool:
+            results = pool.map(query_ollama, prompts)
+    
     for r in range(len(results)):
         out_dict[list(fields.keys())[r]] = clean_text(results[r], fields[list(fields.keys())[r]])
     
     # final_out = literal_eval(output)
     return out_dict
+
+def validate_and_retry_parsing(extracted_txt: str, doc_parent: str, doc_child: str, max_retries: int = 1) -> dict:
+    """
+    Parse document data with validation and retry logic.
+    Validates Aadhaar checksum and mobile number format.
+    Retries with llama3 model if validation fails.
+    """
+    # First attempt with default model
+    parsed_data = parse_docs(extracted_txt, doc_parent, doc_child)
+    
+    # Validate Aadhaar number if present
+    aadhaar_valid = True
+    if 'aadhar_number' in parsed_data and parsed_data['aadhar_number']:
+        aadhaar_valid = validate_aadhaar_checksum(parsed_data['aadhar_number'])
+    
+    # Validate mobile number if present
+    mobile_valid = True
+    if 'mobile_number' in parsed_data and parsed_data['mobile_number']:
+        mobile_valid = validate_mobile_number(parsed_data['mobile_number'])
+    
+    # Retry with fallback model if validation fails
+    retry_count = 0
+    while (not aadhaar_valid or not mobile_valid) and retry_count < max_retries:
+        print(f"Validation failed. Retrying with {model_fallback} model (attempt {retry_count + 1}/{max_retries})")
+        parsed_data = parse_docs(extracted_txt, doc_parent, doc_child, retry_model=model_fallback)
+        
+        # Re-validate
+        if 'aadhar_number' in parsed_data and parsed_data['aadhar_number']:
+            aadhaar_valid = validate_aadhaar_checksum(parsed_data['aadhar_number'])
+        
+        if 'mobile_number' in parsed_data and parsed_data['mobile_number']:
+            mobile_valid = validate_mobile_number(parsed_data['mobile_number'])
+        
+        retry_count += 1
+    
+    # Add validation status to response
+    parsed_data['validation_status'] = {
+        'aadhaar_checksum_valid': aadhaar_valid if 'aadhar_number' in parsed_data else None,
+        'mobile_number_valid': mobile_valid if 'mobile_number' in parsed_data else None,
+        'retry_count': retry_count
+    }
+    
+    return parsed_data
 
 @app.post("/process-income-cert/")
 async def process_income(application_form: UploadFile = File(...), aadhaar: UploadFile = File(...), parse_fields: Optional[bool] = True):
@@ -300,7 +452,7 @@ async def process_income(application_form: UploadFile = File(...), aadhaar: Uplo
         aadhaar_data = parse_docs(aadhaar_document.text, "income_certificate", "aadhaar_card")
         aadhaar_data['aadhar_number'] = extracted_aadhaar_number
         
-        os.remove(aadhaar_path)
+        safe_remove_file(aadhaar_path)
     else:
         raise HTTPException(status_code=422, detail="Unrecognized entity: Issue with the Aadhaar card. Please try again")
     
@@ -344,19 +496,19 @@ async def process_community_dob(study_certificate: Optional[UploadFile] = File(N
         return {"application_docment": application_document.text, "aadhaar_document": aadhaar_document.text}
     if study_certificate:
         study_certificate_data = parse_docs(study_certificate_document.text, "community_dob_certificate", "study_certificate")
-        os.remove(study_certificate_path)
+        safe_remove_file(study_certificate_path)
     else:
         study_certificate_data = {}
 
     if application_document:
         application_data = parse_docs(application_document.text, "community_dob_certificate", "application_form")
-        os.remove(application_path)
+        safe_remove_file(application_path)
     else:
         raise HTTPException(status_code=422, detail="Unrecognized entity: Application data couldn't be parsed")
 
     if aadhaar_document:
         aadhaar_data = parse_docs(aadhaar_document.text, "community_dob_certificate", "aadhaar_card")
-        os.remove(aadhaar_path)
+        safe_remove_file(aadhaar_path)
     else:
         raise HTTPException(status_code=422, detail="Unrecognized entity: Issue with the Aadhaar card. Please try again")
 
@@ -393,13 +545,13 @@ async def process_ebc(application_form: UploadFile = File(...), aadhaar_card: Up
         return {"application_docment": application_document.text, "aadhaar_document": aadhaar_document.text}
     if application_document:
         application_data = parse_docs(application_document.text, "ebc_certificate", "application_form")
-        os.remove(application_path)
+        safe_remove_file(application_path)
     else:
         raise HTTPException(status_code=422, detail="Unrecognized entity: Application data couldn't be parsed")
 
     if aadhaar_document:
         aadhaar_data = parse_docs(aadhaar_document.text, "ebc_certificate", "aadhaar_card")
-        os.remove(aadhaar_path)
+        safe_remove_file(aadhaar_path)
     else:
         raise HTTPException(status_code=422, detail="Unrecognized entity: Issue with the Aadhaar card. Please try again")
 
@@ -433,13 +585,13 @@ async def process_ewc(application_form: UploadFile = File(...), aadhaar_card: Up
         return {"application_docment": application_document.text, "aadhaar_document": aadhaar_document.text}
     if application_document:
         application_data = parse_docs(application_document.text, "economically_weaker_section", "application_form")
-        os.remove(application_path)
+        safe_remove_file(application_path)
     else:
         raise HTTPException(status_code=422, detail="Unrecognized entity: Application data couldn't be parsed")
 
     if aadhaar_document:
         aadhaar_data = parse_docs(aadhaar_document.text, "economically_weaker_section", "aadhaar_card")
-        os.remove(aadhaar_path)
+        safe_remove_file(aadhaar_path)
     else:
         raise HTTPException(status_code=422, detail="Unrecognized entity: Issue with the Aadhaar card. Please try again")
 
@@ -498,26 +650,26 @@ async def process_obc(
 
     if application_document:
         application_data = parse_docs(application_document.text, "obc_certificate", "application_form")
-        os.remove(application_path)
+        safe_remove_file(application_path)
     else:
         raise HTTPException(status_code=422, detail="Unrecognized entity: Application data couldn't be parsed")
 
     if aadhaar_document:
         aadhaar_data = parse_docs(aadhaar_document.text, "obc_certificate", "aadhaar_card")
-        os.remove(aadhaar_path)
+        safe_remove_file(aadhaar_path)
     else:
         raise HTTPException(status_code=422, detail="Unrecognized entity: Issue with the Aadhaar card. Please try again")
 
     if income_tax_return:
         income_tax_data = parse_docs(income_tax_document.text, "obc_certificate", "income_tax_return")
-        os.remove(income_tax_path)
+        safe_remove_file(income_tax_path)
     else:
         income_tax_data = {}
         # raise HTTPException(status_code=422, detail="Unrecognized entity: Issue with the Income Tax Return document. Please try again")
 
     if property_particulars:
         property_data = parse_docs(property_document.text, "obc_certificate", "property_particulars")
-        os.remove(property_path)
+        safe_remove_file(property_path)
     else:
         property_data = {}
         # raise HTTPException(status_code=422, detail="Unrecognized entity: Issue with the Property Particulars document. Please try again")
@@ -557,13 +709,13 @@ async def process_residence_certificate(
         
     if application_document:
         application_data = parse_docs(application_document.text, "residence_certificate", "application_form")
-        os.remove(application_path)
+        safe_remove_file(application_path)
     else:
         raise HTTPException(status_code=422, detail="Unrecognized entity: Application data couldn't be parsed")
 
     if aadhaar_document:
         aadhaar_data = parse_docs(aadhaar_document.text, "residence_certificate", "aadhaar_card")
-        os.remove(aadhaar_path)
+        safe_remove_file(aadhaar_path)
     else:
         raise HTTPException(status_code=422, detail="Unrecognized entity: Issue with the Aadhaar card. Please try again")
 
